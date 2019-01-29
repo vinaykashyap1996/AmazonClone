@@ -12,9 +12,6 @@ passport.deserializeUser((id,done)=>{
     });
 }); 
 
-
-
-
 //MiddleWare
 passport.use('local-login',new LocalStrategy({
     usernameField:'email',

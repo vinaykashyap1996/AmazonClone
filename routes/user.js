@@ -4,6 +4,8 @@ var mongoose=require('mongoose');
 var UserModel=require('../models/user');
 var passport=require('passport');
 var passportConf=require('../config/passport');
+var Cart=require('../models/cart');
+var async=require('async');
 
 router.get('/login',function(req,res){
     // if(req.user) return res.redirect('/');
@@ -18,26 +20,38 @@ res.render('accounts/signup',{
 
 
 router.post('/signup',function(req,res,next){
-    var user = new UserModel();
-    user.profile.name=req.body.name;
-    user.email=req.body.email;
-    user.password=req.body.password;
-    user.profile.picture =user.gravatar();
-
-    UserModel.findOne({email:req.body.email},function(err,UserExists){
-        if(UserExists){
-          req.flash('errors','Account with that email id already exists');
-            return res.redirect('/signup');
-        } else {
-            user.save((err,user)=>{
-                if(err) return next(err);
+    async.waterfall([
+        function(callback){
+            var user = new UserModel();
+            user.profile.name=req.body.name;
+            user.email=req.body.email;
+            user.password=req.body.password;
+            user.profile.picture =user.gravatar();
+        
+            UserModel.findOne({email:req.body.email},function(err,UserExists){
+                if(UserExists){
+                  req.flash('errors','Account with that email id already exists');
+                    return res.redirect('/signup');
+                } else {
+                    user.save((err,user)=>{
+                        if(err) return next(err);
+                            callback(null,user);
+                  });
+                }
+            });
+        },
+      function(user){
+      var cart =new Cart();
+      cart.owner=user._id;
+      cart.save(function(err){
+          if(err) return  next(err);
           req.logIn(user,function(err){
-              if(err) return next(err);
-              res.redirect('/profile');
-          })
-            })
-        }
-    })
+            if(err) return next(err);
+            res.redirect('/profile');
+        });
+      });
+      }
+    ]);
 })
   
 router.post('/login',passport.authenticate('local-login',{
@@ -50,7 +64,7 @@ router.post('/login',passport.authenticate('local-login',{
 router.get('/profile',function(req,res,next){
     UserModel.findOne({_id:req.user._id},function(err,user){
         if(err) return next(err);
-        res.render('accounts/profile',{user:user});
+        res.render('accounts/profile',{user:user},{cart:cart});
     })
 });
 
